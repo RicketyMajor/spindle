@@ -1,0 +1,24 @@
+[project]
+name = "spindle-station"
+version = "0.1.0"
+description = "Spindle Station: baja, etiqueta y organiza música para Spindle"
+readme = "README.md"
+license = "GPL-3.0-only"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.scripts]
+station = "station.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["uv_build>=0.9,<0.14"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "station"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
