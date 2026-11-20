@@ -22,9 +22,13 @@ Write-Host "Teléfono: $model ($((& $adb shell getprop ro.product.model).Trim())
 
 $apk = Join-Path $root 'android\app\build\outputs\apk\debug\app-debug.apk'
 if (-not (Test-Path $apk)) { throw "Falta el APK. Compila primero: cd android; .\gradlew assembleDebug" }
+Write-Host 'Instalando... acepta el aviso en el teléfono si aparece.'
+# PS 5.1 turns native stderr into terminating errors under 'Stop'; capture it as text instead.
+$ErrorActionPreference = 'Continue'
 $out = & $adb install -r $apk 2>&1 | Out-String
+$ErrorActionPreference = 'Stop'
 if ($out -match 'INSTALL_FAILED_USER_RESTRICTED') {
-    throw 'HyperOS bloqueó la instalación: activa "Instalar vía USB" en Opciones de desarrollador.'
+    throw 'HyperOS bloqueó la instalación: activa "Instalar vía USB" en Opciones de desarrollador y acepta el aviso en el teléfono.'
 }
 if ($out -notmatch 'Success') { throw "adb install falló:`n$out" }
 Write-Host 'Instalado.'
