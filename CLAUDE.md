@@ -14,7 +14,28 @@ refs/        Repos de referencia clonados (git-ignored; no se compilan)
 
 ## Comandos
 
-Se completan en la Fase 0, a medida que existan.
+```sh
+# Android (desde android/; JAVA_HOME = JBR de Android Studio)
+export JAVA_HOME="C:/Program Files/Android/Android Studio/jbr"   # PowerShell: $env:JAVA_HOME = "..."
+./gradlew assembleDebug                 # APK en app/build/outputs/apk/debug/
+./gradlew testDebugUnitTest             # pruebas JVM
+
+# Teléfono (desde la raíz, PowerShell)
+.\scripts\setup-device.ps1              # instala el APK y concede el acceso a archivos
+.\scripts\setup-device.ps1 -PushTestLib # además copia testlib\Biblioteca a /sdcard/Music/Spindle/
+
+# Biblioteca de prueba (requiere ffmpeg)
+python scripts/make_testlib.py          # genera testlib/Biblioteca (git-ignored)
+
+# Station (desde station/)
+uv run pytest                           # pruebas
+uv run station --version
+uv tool install --editable .            # instala el comando `station` (ADR-002)
+```
+
+**Plan B si Syncthing falla:** `adb push <Biblioteca> /sdcard/Music/Spindle/`, o copiar la carpeta por USB.
+
+**Referencias:** `git clone --depth 1` de los repos de `docs/referencias.md` en `refs/`.
 
 ## Convenciones
 
