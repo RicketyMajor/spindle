@@ -22,3 +22,10 @@ Los mismos que pide Bare. Sin ellos, HyperOS puede cortar la música con la pant
 6. **Acceso a todos los archivos:** lo concede `scripts/setup-device.ps1`; si no, se hace a mano desde la app.
 
 `scripts/setup-device.ps1` hace lo automatizable y muestra el resto como lista.
+
+## Problemas conocidos de HyperOS
+
+- **Cada instalación por ADB pide confirmación en el teléfono**, aunque "Instalar vía USB" esté activado (`persist.security.adbinstall=1`). Hay que tocar *Install* en unos 10 s, con la pantalla desbloqueada. Si no, `INSTALL_FAILED_USER_RESTRICTED: Install canceled by user`.
+- **Al activar "Instalar vía USB", HyperOS puede ocultar las Opciones de desarrollador y apagar la depuración USB.** Windows ve entonces el teléfono solo como MTP (`VID_2717 PID_FF40`; con ADB es `PID_FF48`, diagnosticable con `Get-PnpDevice`). Se arregla tocando 7 veces la versión de HyperOS y reactivando la depuración.
+- `adb: Sync: EOF` seguido de `offline`: reconectar el cable.
+- El sistema está en inglés: los nombres de los ajustes y de las apps de terceros aparecen en inglés.
