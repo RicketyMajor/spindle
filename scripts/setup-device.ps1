@@ -40,8 +40,17 @@ if ($PushTestLib) {
     $lib = Join-Path $root 'testlib\Biblioteca'
     if (-not (Test-Path $lib)) { throw 'Falta la biblioteca de prueba: python scripts\make_testlib.py' }
     & $adb shell rm -rf /sdcard/Music/Spindle/Biblioteca
-    & $adb shell mkdir -p /sdcard/Music/Spindle
-    & $adb push $lib /sdcard/Music/Spindle/ | Select-Object -Last 1
+    # One push per album: pushing the whole tree at once died midway with "Sync: EOF" on HyperOS.
+    $albums = Get-ChildItem $lib -Directory | ForEach-Object { Get-ChildItem $_.FullName -Directory }
+    foreach ($album in $albums) {
+        $rel = $album.FullName.Substring($lib.Length + 1).Replace('\', '/')
+        & $adb shell "mkdir -p '/sdcard/Music/Spindle/Biblioteca/$rel'"
+        & $adb push "$($album.FullName)\." "/sdcard/Music/Spindle/Biblioteca/$rel/" | Select-Object -Last 1
+    }
+    $expected = (Get-ChildItem $lib -Recurse -File).Count
+    $actual = [int](& $adb shell 'find /sdcard/Music/Spindle/Biblioteca -type f | wc -l').Trim()
+    if ($actual -ne $expected) { throw "Copia incompleta: $actual de $expected archivos. Reconecta el cable y repite." }
+    Write-Host "Biblioteca de prueba: $actual archivos."
 }
 
 Write-Host @"
