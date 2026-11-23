@@ -33,6 +33,8 @@ uv run station --version
 uv tool install --editable .            # instala el comando `station` (ADR-002)
 ```
 
+**adb desde Git Bash:** anteponer `MSYS_NO_PATHCONV=1`. Si no, `/sdcard/...` se convierte en `C:/Program Files/Git/sdcard/...`. Problemas de HyperOS con la instalación: `docs/DISPOSITIVO.md`.
+
 **Plan B si Syncthing falla:** `adb push <Biblioteca> /sdcard/Music/Spindle/`, o copiar la carpeta por USB.
 
 **Referencias:** `git clone --depth 1` de los repos de `docs/referencias.md` en `refs/`.
