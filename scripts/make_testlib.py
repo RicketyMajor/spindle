@@ -5,12 +5,15 @@ Covers every format Spindle reads, multi-value genres, a compilation, a single,
 a folder cover, an embedded cover, notes.md and a high-res file.
 
     python scripts/make_testlib.py [out_dir]     # default: testlib/
+    python scripts/make_testlib.py --grande [N]  # testlib/Grande: N tracks (default 5000) for scan timing
 """
+import argparse
 import json
+import os
 import shutil
 import subprocess
-import sys
 import zlib
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 # (codec args, extension, expected ffprobe codec, tags supported)
@@ -125,5 +128,70 @@ def main(out):
     print(f"{len(made)} tracks in {len(ALBUMS)} albums -> {lib}")
 
 
+# --grande: one album = one format; weighted toward the common ones. WAV left out (no reliable tags).
+BIG_FORMATS = ["flac", "flac", "mp3", "mp3", "aac", "opus", "alac", "vorbis"]
+GENRES = ["rock", "pop", "electrónica", "jazz", "clásica", "ambient", "folk", "hip hop", "metal", "bso"]
+WORDS = "luz ruido señal hielo norte marea vidrio eco sombra fuego río polvo cielo humo arena noche".split()
+
+
+def make_big(out, n):
+    """N tracks, 10 per album, 5 albums per artist, every 10th album a compilation.
+
+    Each track is a tag-only remux (-c copy) of a 1 s template, so 5000 tracks stay small and fast.
+    """
+    lib, tpl = out / "Grande", out / "plantillas"
+    shutil.rmtree(lib, ignore_errors=True)
+    tpl.mkdir(parents=True, exist_ok=True)
+    for fmt in set(BIG_FORMATS):
+        codec_args, ext, _, _ = FORMATS[fmt]
+        ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=1", *codec_args, str(tpl / f"{fmt}.{ext}"))
+    make_cover(tpl / "cover.jpg", "0x404040")
+
+    jobs, sample = [], {}
+    for i in range(n):
+        album, track = divmod(i, 10)
+        fmt = BIG_FORMATS[album % len(BIG_FORMATS)]
+        ext = FORMATS[fmt][1]
+        comp = album % 10 == 9
+        album_artist = "Varios artistas" if comp else f"Artista {album // 5:03d}"
+        name = f"{WORDS[album % 16].capitalize()} {WORDS[album * 7 % 16]} {album:03d}"
+        year = 1970 + album % 55
+        genre = GENRES[album % 10] + (f";{GENRES[(album + 3) % 10]}" if album % 3 == 0 else "")
+        d = lib / album_artist / f"{year} - {name}"
+        if track == 0:
+            d.mkdir(parents=True, exist_ok=True)
+            if album % 2 == 0:
+                shutil.copy(tpl / "cover.jpg", d / "cover.jpg")
+        title = f"{WORDS[i % 16].capitalize()} {WORDS[i * 5 % 16]}"
+        tags = {"album_artist": album_artist, "album": name, "date": year, "genre": genre, "title": title,
+                "artist": f"Artista {i % 97:03d}" if comp else album_artist,
+                "track": f"{track + 1}/{min(10, n - album * 10)}", "disc": "1/1"}
+        if comp:
+            tags["compilation"] = "1"
+        meta = [x for k, v in tags.items() for x in ("-metadata", f"{k}={v}")]
+        id3 = ["-id3v2_version", "4"] if fmt == "mp3" else []
+        dest = d / f"{track + 1:02d} {title}.{ext}"
+        jobs.append(("-i", str(tpl / f"{fmt}.{ext}"), "-map", "0", "-c", "copy", *id3, *meta, str(dest)))
+        sample.setdefault(fmt, (dest, album_artist))
+    with ThreadPoolExecutor(os.cpu_count()) as ex:
+        list(ex.map(lambda a: ffmpeg(*a), jobs))
+
+    # Self-check: N audio files; one per format keeps codec and tags after the copy remux.
+    exts = {FORMATS[f][1] for f in BIG_FORMATS}
+    count = sum(1 for p in lib.rglob("*") if p.suffix[1:] in exts)
+    assert count == n, (count, n)
+    for fmt, (path, album_artist) in sample.items():
+        codec, tags = probe(path)
+        assert codec == FORMATS[fmt][2], (path, codec)
+        assert tags.get("album_artist", tags.get("albumartist")) == album_artist, (path, tags)
+        assert "title" in tags and "genre" in tags, (path, tags)
+    print(f"{n} tracks in {(n + 9) // 10} albums -> {lib}")
+
+
 if __name__ == "__main__":
-    main(Path(sys.argv[1] if len(sys.argv) > 1 else Path(__file__).resolve().parent.parent / "testlib"))
+    ap = argparse.ArgumentParser(description="Generate a synthetic test library with ffmpeg.")
+    ap.add_argument("out", nargs="?", type=Path, default=Path(__file__).resolve().parent.parent / "testlib")
+    ap.add_argument("--grande", type=int, nargs="?", const=5000, metavar="N",
+                    help="large library for scan timing (default 5000 tracks)")
+    a = ap.parse_args()
+    make_big(a.out, a.grande) if a.grande else main(a.out)

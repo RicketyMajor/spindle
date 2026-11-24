@@ -26,6 +26,7 @@ export JAVA_HOME="C:/Program Files/Android/Android Studio/jbr"   # PowerShell: $
 
 # Biblioteca de prueba (requiere ffmpeg)
 python scripts/make_testlib.py          # genera testlib/Biblioteca (git-ignored)
+python scripts/make_testlib.py --grande # testlib/Grande: 5.000 pistas para medir el escaneo
 
 # Station (desde station/)
 uv run pytest                           # pruebas
