@@ -46,3 +46,40 @@ Formato corto: contexto · decisión · alternativas · consecuencias. Las más 
   - Dependencias: solo las que se usan, a medida que se usan.
 - **Alternativas:** fijar cada app por separado. Se descartó para no resolver dos veces los mismos problemas de build.
 - **Consecuencias:** los cambios de versiones se coordinan entre los dos proyectos.
+
+## ADR-005 — Etiquetas con el AAR de TagLib de Kyant0
+
+- **Contexto:** SPEC 5.9 pide TagLib para `flac`, `mp3`, `opus`, `ogg`, `m4a` (AAC y ALAC) y `wav`, y deja elegir la forma de integrarlo. Auxio compila su propio JNI (`musikr`, GPLv3) y PixelPlayer usa el AAR de Kyant0.
+- **Decisión:**
+  - `io.github.kyant0:taglib:1.0.6` (Apache-2.0, la última versión en Maven Central), solo con `abiFilters += "arm64-v8a"`.
+  - Lectura como PixelPlayer: `ParcelFileDescriptor.open(file, MODE_READ_ONLY)` y `TagLib.getMetadata(fd.dup().detachFd(), readPictures = false)` + `TagLib.getAudioProperties(...)`.
+  - De TagLib salen las etiquetas (`propertyMap`) y la duración (en **ms**), el bitrate, la frecuencia y los canales. No se leen imágenes en F1.
+  - Prueba en el teléfono (2026-11-09, build debug, un hilo): 5.012 archivos sintéticos de los 7 formatos, 0 errores, **3,3 ms por archivo** con propiedades, mapa e imágenes. Leyó los géneros múltiples `rock;electrónica`, `YT_ID`, `COMPOSER` y `COMPILATION`.
+- **Alternativas:**
+  - *JNI propio o `musikr` de Auxio:* da también el códec, pero exige NDK, CMake y el submódulo de TagLib.
+  - *jaudiotagger:* más lento y sin Opus nativo.
+  - *MediaStore:* lo descarta SPEC 5.9 (ADR-001).
+- **Consecuencias:**
+  - El APK crece unos 4 MB (25 MB en debug). Para usar un emulador x86_64 hay que agregar la ABI.
+  - El AAR **no** entrega el códec ni la profundidad de bits (ADR-006).
+  - La lectura con TagLib es nativa: no corre en las pruebas de la JVM y se verifica en el teléfono.
+
+## ADR-006 — Códec y profundidad de bits desde una lectura propia del encabezado
+
+- **Contexto:** el indicador técnico (SPEC 5.3) necesita el códec (en `.m4a` puede ser AAC o ALAC) y la profundidad de bits de FLAC, WAV y ALAC. TagLib (ADR-005) no los entrega. El presupuesto del primer escaneo es 12 ms por pista para todo (5.000 pistas en < 60 s).
+- **Decisión:** `library/AudioHeader.kt`, Kotlin puro con `RandomAccessFile`:
+  - FLAC: el bloque STREAMINFO, saltando un ID3 inicial si lo hay;
+  - WAV: el chunk `fmt `;
+  - MP4: se recorren las cajas hasta `moov/trak/mdia/minf/stbl/stsd`. `alac` → ALAC, con la profundidad del byte 5 de su cookie; `mp4a` → AAC. `moov` puede estar antes o después de `mdat`;
+  - el resto, por extensión: `mp3` → MP3, `opus` → OPUS, `ogg` → VORBIS.
+
+  Los formatos con pérdida muestran el bitrate de TagLib. Se prueba en la JVM con bytes armados en el test.
+- **Alternativas** (medidas en el teléfono, mismos 5.012 archivos):
+  - *`MediaExtractor`:* **9,3 ms por archivo**, y en HyperOS reporta FLAC como `audio/raw`, así que igual hay que mirar la extensión. Su `pcm-encoding` es la salida del decodificador, no la profundidad del archivo.
+  - *`MediaMetadataRetriever`:* **15,8 ms**, pide API 31 (minSdk es 30), y su mime es el del contenedor: `audio/mp4` para AAC y ALAC.
+  - *`MetadataRetriever` de Media3:* prepara una fuente por archivo; caro para un escaneo.
+  - *Sin profundidad de bits:* lo más simple, pero `[FLAC 44.1kHz]` no distingue 16 de 24 bits, y ALAC se ve igual que AAC.
+- **Consecuencias:**
+  - Son unas 80 líneas propias, de menos de 0,5 ms por archivo.
+  - Límite: un `.ogg` se rotula como Vorbis por su extensión. Opus dentro de `.ogg` saldría mal, pero Station lo escribe como `.opus`.
+  - Si el encabezado no se entiende, el indicador queda sin bits (`[FLAC 44.1kHz]`).
