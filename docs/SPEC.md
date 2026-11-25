@@ -25,7 +25,7 @@
 - Entorno del usuario:
   - PC con Windows: desarrollo de la app (Android Studio / Gradle + ADB por USB) y ejecución de Station de forma nativa (no requiere WSL ni Docker).
   - Notebook con Linux: Station también debe funcionar ahí.
-  - Teléfono: Xiaomi Redmi Note 10 u 11.
+  - Teléfono: Xiaomi Redmi 10 5G (ver `docs/DISPOSITIVO.md`).
 
 ---
 
@@ -146,7 +146,7 @@ Igual que Bare:
 
 - Fondo `#000000`, texto `#FFFFFF`, secundario `#8A8A8A`. Acento único ámbar `#FFB000` solo para lo que está sonando.
 - Tipografía monoespaciada incluida (JetBrains Mono, IBM Plex Mono o Hack). Sin íconos: los controles son palabras.
-- Escala: título 24 sp · listas 20 sp · secundario 14 sp.
+- Escala: título 24 sp · menú raíz 20 sp · listas 16 sp · secundario 14 sp. A 20 sp las filas de las listas no caben en el ancho del teléfono (unas 28 columnas).
 - Áreas táctiles ≥ 48 dp.
 - Sin portadas grandes. Portada pequeña opcional en "sonando" (E5).
 
@@ -281,7 +281,7 @@ Igual que Bare:
   - al abrir la app (en segundo plano);
   - al volver a la app si pasaron más de 10 minutos;
   - con `reindexar` en ajustes.
-- **Etiquetas a leer:** título, artista, artista del álbum, álbum, número de pista y disco, año o fecha, género (multivalor; separar por `;` o `/`), compositor, IDs de MusicBrainz, ID de YouTube, ReplayGain, portada incrustada y letra.
+- **Etiquetas a leer:** título, artista, artista del álbum, álbum, número de pista y disco, año o fecha, género (multivalor; separar solo por `;`, porque `/` aparece dentro de géneros reales como "R&B/Soul"), compositor, IDs de MusicBrainz, ID de YouTube, ReplayGain, portada incrustada y letra. La portada y la letra no se leen en F1: no hay dónde mostrarlas hasta E5 y F6.
 - **Datos técnicos:** códec, frecuencia de muestreo, profundidad de bits, tasa de bits, canales y duración.
 - **Lector de etiquetas: TagLib.** Lo usan Auxio y PixelPlayer (14.1). Claude Code elige la forma de integrarlo (la de Auxio, la de PixelPlayer u otro binding de TagLib para Android) y lo documenta en un ADR. Requisito: soportar los seis formatos anteriores.
 - **Rendimiento:** primera indexación de 5.000 pistas en menos de 60 s en el dispositivo; incremental sin cambios en menos de 3 s.
@@ -402,10 +402,10 @@ Las condiciones de servicio de YouTube no permiten descargar contenido fuera de 
 | Fase | Contenido | Se cierra cuando… |
 |---|---|---|
 | F0 Esqueleto | Repo con `android/` y `station/`, `CLAUDE.md`, licencia GPL-3.0, build, instalación por ADB, `docs/DISPOSITIVO.md`. Clonar las referencias de la sección 14 en `refs/` y escribir `docs/referencias.md`. Biblioteca de prueba generada con ffmpeg (varios formatos, géneros, una recopilación, un álbum con `notes.md`) | La app se instala, obtiene acceso a archivos y lista las carpetas de la biblioteca de prueba; el usuario aprobó el plan de reutilización |
-| F1 Biblioteca | Indexación incremental con TagLib, navegación estilo iPod completa, filtro al escribir, vista de álbum con indicador técnico | Navegar la biblioteca de prueba por los 5 recorridos; cumplir las metas de rendimiento |
+| F1 Biblioteca | Indexación incremental con TagLib, navegación estilo iPod completa, filtro al escribir, vista de álbum con indicador técnico | Navegar la biblioteca de prueba por los 4 recorridos (artistas, álbumes, canciones, géneros; `listas` llega con las M3U8 en F4); cumplir las metas de rendimiento |
 | F2 Reproducción | Servicio Media3, contexto, cola, aleatorio, repetir (todo / una pista), parada definitiva, retomar en pausa, controles de bloqueo y Bluetooth, foco de audio, sin cortes entre pistas, sacar un disco al azar | Con la pantalla apagada, un álbum suena completo y se detiene; los audífonos pausan; Bare muestra la línea `▶` |
 | F3 Station v1 | beets-ytimport configurado, `bajar`, `importar`, `revisar`, `estado`; guía y configuración de Syncthing | De punta a punta: un enlace de YouTube termina etiquetado, con portada cuadrada, sin la parte hablada, y suena en el teléfono |
-| F4 Datos de usuario | Listas M3U8, estadísticas, recortes no destructivos, exportar/importar, `notes.md` | Reinstalar la app conserva listas, conteos y recortes vía `Datos/` |
+| F4 Datos de usuario | Listas M3U8 (y el recorrido `listas`), estadísticas, recortes no destructivos, exportar/importar, `notes.md` | Reinstalar la app conserva listas, conteos y recortes vía `Datos/` |
 | F5 Pedidos | Destino de Compartir, `station pedidos`, `pedidos-hechos.txt`, tarea programada de madrugada | `♪ pedir a Spindle` en la noche → la canción está en el teléfono a la mañana siguiente |
 | F6 Pulido | Temporizador para dormir, ReplayGain, letras, `recortar`/`aplicar-recortes` definitivos, revisión de batería | Revisión final con el usuario |
 
