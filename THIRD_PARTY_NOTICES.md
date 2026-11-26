@@ -11,4 +11,4 @@ Code adapted from reference projects (see `docs/referencias.md`) is listed below
 
 | File in Spindle | Project | License | Upstream commit | Original path |
 |---|---|---|---|---|
-| — | — | — | — | — |
+| `android/app/src/main/java/dev/ricketymajor/spindle/library/Normalize.kt` | KISS launcher (via Bare) | GPL-3.0 | `14a56e2` | `app/src/main/java/fr/neamar/kiss/normalizer/StringNormalizer.java` |
