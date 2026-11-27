@@ -41,4 +41,19 @@ class AudioHeaderTest {
         assertNull(read("t.wav", wav(16).copyOf(30)))
         assertNull(read("cover.jpg", ByteArray(64)))
     }
+
+    @Test
+    fun alacBitsFromTheCookie() {
+        assertEquals(AudioHeader("ALAC", 16), read("a.m4a", m4a(alacEntry(16))))
+        assertEquals(AudioHeader("ALAC", 24), read("b.m4a", m4a(alacEntry(24), moovFirst = true)))
+    }
+
+    @Test
+    fun aacHasNoBits() = assertEquals(AudioHeader("AAC", null), read("c.m4a", m4a(mp4aEntry())))
+
+    @Test
+    fun moovAfterA64BitMdat() = assertEquals(AudioHeader("ALAC", 16), read("d.m4a", m4a(alacEntry(16), largeMdat = true)))
+
+    @Test
+    fun m4aWithoutMoovIsNull() = assertNull(read("e.m4a", box("ftyp", ascii("M4A ")) + box("mdat", ByteArray(10))))
 }

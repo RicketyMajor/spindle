@@ -12,6 +12,7 @@ fun readAudioHeader(file: File): AudioHeader? = runCatching {
         when (file.extension.lowercase()) {
             "flac" -> f.flac()
             "wav" -> f.wav()
+            "m4a" -> f.mp4()
             else -> codecFromExtension(file.extension)?.let { AudioHeader(it, null) }
         }
     }
@@ -63,3 +64,47 @@ private fun ascii(b: ByteArray, from: Int, len: Int) = String(b, from, len, Char
 private fun le16(b: ByteArray, o: Int) = (b[o].toInt() and 0xFF) or ((b[o + 1].toInt() and 0xFF) shl 8)
 private fun le32(b: ByteArray, o: Int) = (0..3).fold(0L) { acc, i -> acc or ((b[o + i].toLong() and 0xFF) shl (8 * i)) }
 private fun synchsafe(b: ByteArray, o: Int) = (0..3).fold(0L) { acc, i -> (acc shl 7) or (b[o + i].toLong() and 0x7F) }
+
+/** `stsd`'s first sample entry: `alac` → ALAC with the cookie's bit depth, `mp4a` → AAC. `moov` may sit after `mdat`. */
+private fun RandomAccessFile.mp4(): AudioHeader? {
+    val stsd = findBox(0, length(), listOf("moov", "trak", "mdia", "minf", "stbl", "stsd")) ?: return null
+    seek(stsd + 16) // box header + version/flags + entry count
+    val entry = ByteArray(ALAC_BITS + 1)
+    readFully(entry, 0, 8)
+    return when (ascii(entry, 4, 4)) {
+        "mp4a" -> AudioHeader("AAC", null)
+        "alac" -> {
+            readFully(entry, 8, ALAC_BITS + 1 - 8)
+            AudioHeader("ALAC", entry[ALAC_BITS].toInt() and 0xFF)
+        }
+        else -> null
+    }
+}
+
+/** Sample entry header 8 + AudioSampleEntry 28 + `alac` box header 8 + version/flags 4; the cookie's byte 5 is the bit depth. */
+private const val ALAC_BITS = 8 + 28 + 8 + 4 + 5
+
+/** Offset of the box at [path] inside [from, to), descending only through the named containers. */
+private fun RandomAccessFile.findBox(from: Long, to: Long, path: List<String>): Long? {
+    val h = ByteArray(16)
+    var pos = from
+    while (pos + 8 <= to) {
+        seek(pos)
+        readFully(h, 0, 8)
+        var size = be32(h, 0)
+        var header = 8L
+        if (size == 1L) { // 64-bit size follows the type
+            readFully(h, 8, 8)
+            size = be64(h, 8)
+            header = 16
+        }
+        if (size == 0L) size = to - pos // box runs to the end
+        if (size < header) return null
+        if (ascii(h, 4, 4) == path[0]) return if (path.size == 1) pos else findBox(pos + header, pos + size, path.drop(1))
+        pos += size
+    }
+    return null
+}
+
+private fun be32(b: ByteArray, o: Int) = (0..3).fold(0L) { acc, i -> (acc shl 8) or (b[o + i].toLong() and 0xFF) }
+private fun be64(b: ByteArray, o: Int) = (0..7).fold(0L) { acc, i -> (acc shl 8) or (b[o + i].toLong() and 0xFF) }
